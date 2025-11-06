@@ -30,54 +30,78 @@ function toPersianDate($timestamp = null) {
         $timestamp = time();
     } elseif (is_string($timestamp)) {
         $timestamp = strtotime($timestamp);
+        if ($timestamp === false) {
+            $timestamp = time();
+        }
     }
 
     $persian_months = [
-        1 => 'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
-        'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+        1 => 'فروردین', 2 => 'اردیبهشت', 3 => 'خرداد', 4 => 'تیر',
+        5 => 'مرداد', 6 => 'شهریور', 7 => 'مهر', 8 => 'آبان',
+        9 => 'آذر', 10 => 'دی', 11 => 'بهمن', 12 => 'اسفند'
     ];
 
     $persian_days = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنج‌شنبه', 'جمعه', 'شنبه'];
 
-    // Convert to Jalali
+    // Convert to Jalali using accurate algorithm
     $gYear = (int)date('Y', $timestamp);
     $gMonth = (int)date('m', $timestamp);
     $gDay = (int)date('d', $timestamp);
 
     $g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];
 
-    if ($gMonth > 2) {
-        $jy = $gYear + 1600;
-        $jd = 365 * $gYear + floor(($gYear + 3) / 4) - floor(($gYear + 99) / 100) + floor(($gYear + 399) / 400) - 80 + $gDay + $g_d_m[$gMonth - 1];
+    $gy = $gYear - 1600;
+    $gm = $gMonth - 1;
+    $gd = $gDay - 1;
+
+    $g_day_no = 365 * $gy + floor(($gy + 3) / 4) - floor(($gy + 99) / 100) + floor(($gy + 399) / 400);
+
+    for ($i = 0; $i < $gm; ++$i) {
+        $g_day_no += $g_d_m[$i];
+    }
+
+    if ($gm > 1 && (($gy % 4 == 0 && $gy % 100 != 0) || ($gy % 400 == 0))) {
+        $g_day_no++;
+    }
+
+    $g_day_no += $gd;
+
+    $j_day_no = $g_day_no - 79;
+
+    $j_np = floor($j_day_no / 12053);
+    $j_day_no = $j_day_no % 12053;
+
+    $jy = 979 + 33 * $j_np + 4 * floor($j_day_no / 1461);
+
+    $j_day_no %= 1461;
+
+    if ($j_day_no >= 366) {
+        $jy += floor(($j_day_no - 1) / 365);
+        $j_day_no = ($j_day_no - 1) % 365;
+    }
+
+    if ($j_day_no < 186) {
+        $jm = 1 + floor($j_day_no / 31);
+        $jd = 1 + ($j_day_no % 31);
     } else {
-        $jy = $gYear + 1599;
-        $jd = 365 * $gYear + floor(($gYear + 2) / 4) - floor(($gYear + 98) / 100) + floor(($gYear + 398) / 400) - 80 + $gDay + $g_d_m[$gMonth - 1];
+        $jm = 7 + floor(($j_day_no - 186) / 30);
+        $jd = 1 + (($j_day_no - 186) % 30);
     }
 
-    $jy_day = $jd - (365 * $jy + floor($jy / 33) * 8 + floor(($jy % 33 + 3) / 4));
+    // Ensure month is within valid range
+    $jm = max(1, min(12, (int)$jm));
+    $jd = max(1, (int)$jd);
 
-    if ($jy_day < 1) {
-        $jy--;
-        $jy_day = $jd - (365 * $jy + floor($jy / 33) * 8 + floor(($jy % 33 + 3) / 4));
-    }
-
-    if ($jy_day <= 186) {
-        $jm = 1 + floor(($jy_day - 1) / 31);
-        $jd_final = 1 + (($jy_day - 1) % 31);
-    } else {
-        $jm = 7 + floor(($jy_day - 187) / 30);
-        $jd_final = 1 + (($jy_day - 187) % 30);
-    }
-
-    $day_of_week = $persian_days[date('w', $timestamp)];
+    $day_of_week_index = (int)date('w', $timestamp);
+    $day_of_week = $persian_days[$day_of_week_index];
 
     return [
         'year' => $jy,
         'month' => $jm,
-        'day' => (int)$jd_final,
+        'day' => $jd,
         'month_name' => $persian_months[$jm],
         'day_name' => $day_of_week,
-        'formatted' => $day_of_week . ' ' . (int)$jd_final . ' ' . $persian_months[$jm] . ' ' . $jy
+        'formatted' => $day_of_week . ' ' . $jd . ' ' . $persian_months[$jm] . ' ' . $jy
     ];
 }
 

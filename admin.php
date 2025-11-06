@@ -332,7 +332,7 @@ $chartData = array_reverse($stmt->fetchAll());
                                            data-task-id="<?php echo $task['id']; ?>"
                                            <?php echo $isCompleted ? 'checked' : ''; ?>>
                                 </div>
-                                <div class="checklist-content" onclick="openTaskDetailModal(<?php echo $task['id']; ?>, '<?php echo htmlspecialchars($task['task_type']); ?>')" style="cursor: pointer;">
+                                <div class="checklist-content" onclick="openTaskDetailModal(<?php echo $task['id']; ?>, '<?php echo htmlspecialchars($task['task_type'] ?? 'general'); ?>')" style="cursor: pointer;">
                                     <div class="checklist-title"><?php echo htmlspecialchars($task['title']); ?></div>
                                     <div class="checklist-meta">
                                         <span class="badge <?php echo $priorityClass; ?>">
@@ -353,7 +353,7 @@ $chartData = array_reverse($stmt->fetchAll());
                                             </svg>
                                             <?php echo convertEnglishToPersian($task['estimated_minutes']); ?> دقیقه
                                         </span>
-                                        <button class="btn-detail" onclick="event.stopPropagation(); openTaskDetailModal(<?php echo $task['id']; ?>, '<?php echo htmlspecialchars($task['task_type']); ?>')">
+                                        <button class="btn-detail" onclick="event.stopPropagation(); openTaskDetailModal(<?php echo $task['id']; ?>, '<?php echo htmlspecialchars($task['task_type'] ?? 'general'); ?>')">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>

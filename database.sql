@@ -176,6 +176,9 @@ INSERT INTO `users` (`username`, `password`, `role`, `full_name`) VALUES
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'مدیر اینستاگرام'),
 ('manager', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'manager', 'مدیر کل');
 
+-- Update existing tasks to ensure they have task_type
+UPDATE `daily_tasks` SET `task_type` = 'general' WHERE `task_type` IS NULL OR `task_type` = '';
+
 -- Insert default daily tasks with task_type
 INSERT INTO `daily_tasks` (`title`, `description`, `priority`, `estimated_minutes`, `category`, `task_type`, `display_order`) VALUES
 ('بررسی و پاسخ به دایرکت‌ها', 'پاسخگویی به تمام پیام‌های مشتریان در دایرکت و ارائه اطلاعات محصولات', 'high', 60, 'customer_service', 'direct_messages', 1),
