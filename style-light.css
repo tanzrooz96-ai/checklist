@@ -70,6 +70,210 @@ body {
     border-radius: 50%;
 }
 
+/* ===== LOGIN PAGE ===== */
+.login-page {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 20px;
+    background: linear-gradient(135deg, #f5f7fa 0%, #fff 100%);
+}
+
+.login-container {
+    width: 100%;
+    max-width: 450px;
+    animation: fadeIn 0.3s ease-out;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.login-card {
+    background: var(--card-bg);
+    border-radius: var(--radius);
+    padding: 50px 40px;
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.logo-container {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-light) 100%);
+    border-radius: 20px;
+    margin-bottom: 20px;
+}
+
+.logo-icon {
+    width: 48px;
+    height: 48px;
+    color: white;
+}
+
+.login-header h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 8px;
+}
+
+.login-header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.form-label {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.role-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+
+.role-selector input[type="radio"] {
+    display: none;
+}
+
+.role-option {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    padding: 20px 14px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-tap-highlight-color: transparent;
+}
+
+.role-option:hover {
+    border-color: var(--primary-light);
+    background: rgba(196, 30, 58, 0.02);
+}
+
+.role-icon {
+    width: 32px;
+    height: 32px;
+    color: var(--text-secondary);
+    transition: all 0.2s;
+}
+
+.role-option span {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.role-selector input[type="radio"]:checked + .role-option {
+    border-color: var(--primary-color);
+    background: rgba(255, 240, 243, 0.4);
+}
+
+.role-selector input[type="radio"]:checked + .role-option .role-icon {
+    color: var(--primary-color);
+    transform: scale(1.1);
+}
+
+.input-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    right: 14px;
+    width: 20px;
+    height: 20px;
+    color: var(--text-secondary);
+    pointer-events: none;
+}
+
+.form-input {
+    width: 100%;
+    padding: 12px 14px 12px 44px;
+    border: 2px solid var(--border-color);
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-family: inherit;
+    transition: all 0.2s;
+    background: white;
+}
+
+.form-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(196, 30, 58, 0.1);
+}
+
+.btn-icon {
+    width: 18px;
+    height: 18px;
+}
+
+.login-footer {
+    margin-top: 24px;
+    text-align: center;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-color);
+}
+
+.login-footer p {
+    font-size: 13px;
+    color: var(--text-secondary);
+}
+
+.alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: var(--radius);
+    margin-bottom: 20px;
+    font-size: 14px;
+}
+
+.alert-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.alert-error {
+    background: rgba(231, 76, 60, 0.1);
+    color: var(--danger-color);
+    border: 1px solid rgba(231, 76, 60, 0.3);
+}
+
 /* ===== HEADER ===== */
 .header {
     background: var(--card-bg);
@@ -855,6 +1059,28 @@ textarea.form-input {
 @media (max-width: 480px) {
     .stats-grid {
         grid-template-columns: 1fr;
+    }
+
+    .login-card {
+        padding: 40px 24px;
+    }
+
+    .role-selector {
+        grid-template-columns: 1fr;
+    }
+
+    .login-header h1 {
+        font-size: 20px;
+    }
+
+    .logo-container {
+        width: 70px;
+        height: 70px;
+    }
+
+    .logo-icon {
+        width: 40px;
+        height: 40px;
     }
 }
 
