@@ -93,8 +93,10 @@ $todayMetrics = $stmt->fetch();
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>گزارش روزانه - <?php echo $persianDate['formatted']; ?></title>
     <link rel="stylesheet" href="style-light.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+
     <style>
+        /* Optimized print and report styles */
         @media print {
             .no-print { display: none !important; }
             .header { display: none !important; }
@@ -741,5 +743,7 @@ $todayMetrics = $stmt->fetch();
         }
     </script>
     <script src="script-light.js"></script>
+    <!-- Load Chart.js with defer -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </body>
 </html>

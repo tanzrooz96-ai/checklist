@@ -1,9 +1,20 @@
 // ===============================================
-// سیستم مدیریت اینستاگرام - نسخه سبک و سریع
-// بهینه شده برای عملکرد بالا
+// سیستم مدیریت اینستاگرام - نسخه نهایی ULTIMATE
+// بهینه شده برای بهترین عملکرد
 // ===============================================
 
-// ===== TOAST NOTIFICATIONS (ساده شده) =====
+// ===== VIBRATION UTILITY =====
+function vibrate(pattern = [100]) {
+    if ('vibrate' in navigator) {
+        try {
+            navigator.vibrate(pattern);
+        } catch (e) {
+            // Vibration not supported, silently ignore
+        }
+    }
+}
+
+// ===== TOAST NOTIFICATIONS (بهینه نهایی) =====
 class Toast {
     constructor() {
         this.container = this.createContainer();
@@ -32,6 +43,15 @@ class Toast {
     }
 
     show(message, type = 'success', duration = 3000) {
+        // Vibrate based on type
+        const vibrationPatterns = {
+            success: [50],
+            error: [100, 50, 100],
+            warning: [75],
+            info: [30]
+        };
+        vibrate(vibrationPatterns[type] || [50]);
+
         const toast = document.createElement('div');
         const colors = {
             success: { bg: '#27AE60', icon: '✓' },
