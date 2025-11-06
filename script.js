@@ -798,3 +798,381 @@ console.log = function(...args) {
     lastLog = Date.now();
     originalConsoleLog.apply(console, args);
 };
+
+// ===============================================
+// 📝 TASK DETAIL MODAL SYSTEM
+// ===============================================
+
+let currentTaskId = null;
+let currentTaskType = null;
+let currentTaskData = {};
+
+// Open task detail modal
+function openTaskDetailModal(taskId, taskType) {
+    currentTaskId = taskId;
+    currentTaskType = taskType;
+
+    // Get task info
+    const task = allTasksData.find(t => t.id == taskId);
+    if (!task) {
+        toast.show('وظیفه پیدا نشد', 'error');
+        return;
+    }
+
+    // Update modal title
+    document.getElementById('modalTaskTitle').textContent = task.title;
+
+    // Generate form based on task type
+    const formHTML = generateTaskForm(task);
+    document.getElementById('taskDetailForm').innerHTML = formHTML;
+
+    // Load existing data if any
+    loadExistingTaskData(taskId);
+
+    // Show modal
+    const modal = document.getElementById('taskDetailModal');
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+
+    // Add ripple effect
+    createRipple(event);
+}
+
+// Close modal
+function closeTaskDetailModal() {
+    const modal = document.getElementById('taskDetailModal');
+    modal.classList.remove('active');
+    setTimeout(() => {
+        modal.style.display = 'none';
+        currentTaskId = null;
+        currentTaskType = null;
+        currentTaskData = {};
+    }, 300);
+}
+
+// Generate form HTML based on task type
+function generateTaskForm(task) {
+    let html = `<div class="task-detail-section">
+        <h4>⏱️ زمان صرف شده</h4>
+        <div class="form-group">
+            <label class="form-label">چند دقیقه برای این وظیفه وقت گذاشتید؟</label>
+            <input type="number" id="timeSpent" class="form-input"
+                   placeholder="زمان به دقیقه" min="0" max="480"
+                   value="${task.estimated_minutes}">
+            <small class="form-hint">زمان پیشنهادی: ${task.estimated_minutes} دقیقه</small>
+        </div>
+    </div>`;
+
+    // Generate specific form based on task type
+    switch(task.task_type) {
+        case 'stories':
+            html += generateStoriesForm();
+            break;
+        case 'posts':
+            html += generatePostsForm();
+            break;
+        case 'follow':
+            html += generateFollowForm();
+            break;
+        case 'unfollow':
+            html += generateUnfollowForm();
+            break;
+        case 'direct_messages':
+        case 'comments':
+        case 'engagement':
+        case 'research':
+        case 'planning':
+        case 'metrics':
+        case 'insights':
+        case 'reels':
+        case 'campaign':
+        default:
+            html += generateGeneralForm();
+            break;
+    }
+
+    return html;
+}
+
+// Generate Stories Form (0-5)
+function generateStoriesForm() {
+    return `
+        <div class="task-detail-section">
+            <h4>📱 استوری‌ها</h4>
+            <label class="form-label">چند استوری گذاشتید؟ (0 تا 5)</label>
+            <div class="counter-controls">
+                <button type="button" class="counter-btn" onclick="updateCounter('stories', -1)">−</button>
+                <div class="counter-display" id="storiesCount">0</div>
+                <button type="button" class="counter-btn" onclick="updateCounter('stories', 1)">+</button>
+            </div>
+            <div id="storiesContainer"></div>
+        </div>
+    `;
+}
+
+// Generate Posts Form (0-2)
+function generatePostsForm() {
+    return `
+        <div class="task-detail-section">
+            <h4>📸 پست‌ها</h4>
+            <label class="form-label">چند پست گذاشتید؟ (0 تا 2)</label>
+            <div class="counter-controls">
+                <button type="button" class="counter-btn" onclick="updateCounter('posts', -1)">−</button>
+                <div class="counter-display" id="postsCount">0</div>
+                <button type="button" class="counter-btn" onclick="updateCounter('posts', 1)">+</button>
+            </div>
+            <div id="postsContainer"></div>
+        </div>
+    `;
+}
+
+// Generate Follow Form
+function generateFollowForm() {
+    return `
+        <div class="task-detail-section">
+            <h4>➕ فالو کردن</h4>
+            <div class="form-group">
+                <label class="form-label">چند نفر فالو کردید؟</label>
+                <input type="number" id="followCount" class="form-input"
+                       placeholder="تعداد فالو" min="0">
+            </div>
+            <label class="form-label">نوع اکانت‌ها:</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="followType" value="regular">
+                    <span>افراد عادی</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="followType" value="business">
+                    <span>کسب‌وکارها و فروشگاه‌ها</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="followType" value="brands">
+                    <span>برندها و صفحات بزرگ</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label class="form-label">توضیحات</label>
+                <textarea id="followDescription" class="form-input" rows="4"
+                          placeholder="توضیح دهید چه نوع اکانت‌هایی را فالو کردید و چرا؟"></textarea>
+            </div>
+        </div>
+    `;
+}
+
+// Generate Unfollow Form
+function generateUnfollowForm() {
+    return `
+        <div class="task-detail-section">
+            <h4>➖ آنفالو کردن</h4>
+            <div class="form-group">
+                <label class="form-label">چند نفر آنفالو کردید؟</label>
+                <input type="number" id="unfollowCount" class="form-input"
+                       placeholder="تعداد آنفالو" min="0">
+            </div>
+            <label class="form-label">نوع اکانت‌ها:</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="unfollowType" value="inactive">
+                    <span>اکانت‌های غیرفعال</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="unfollowType" value="irrelevant">
+                    <span>اکانت‌های نامرتبط</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="unfollowType" value="low_engagement">
+                    <span>اکانت‌های با تعامل پایین</span>
+                </label>
+            </div>
+            <div class="form-group">
+                <label class="form-label">توضیحات</label>
+                <textarea id="unfollowDescription" class="form-input" rows="4"
+                          placeholder="توضیح دهید چه نوع اکانت‌هایی را آنفالو کردید و چرا؟"></textarea>
+            </div>
+        </div>
+    `;
+}
+
+// Generate General Form for other tasks
+function generateGeneralForm() {
+    return `
+        <div class="task-detail-section">
+            <h4>📝 جزئیات وظیفه</h4>
+            <div class="form-group">
+                <label class="form-label">توضیحات کامل</label>
+                <textarea id="generalNotes" class="form-input" rows="6"
+                          placeholder="جزئیات کامل انجام این وظیفه را بنویسید..."></textarea>
+            </div>
+        </div>
+    `;
+}
+
+// Update counter (for stories and posts)
+function updateCounter(type, delta) {
+    const countEl = document.getElementById(`${type}Count`);
+    const containerEl = document.getElementById(`${type}Container`);
+    let currentCount = parseInt(countEl.textContent) || 0;
+
+    const max = type === 'stories' ? 5 : 2;
+    const newCount = Math.max(0, Math.min(max, currentCount + delta));
+
+    countEl.textContent = newCount;
+
+    // Update form fields
+    if (newCount === 0) {
+        // Show reason field
+        containerEl.innerHTML = `
+            <div class="item-details">
+                <h5>چرا ${type === 'stories' ? 'استوری' : 'پست'} نگذاشتید؟</h5>
+                <textarea id="${type}Reason" class="form-input" rows="4"
+                          placeholder="دلیل را توضیح دهید..."></textarea>
+            </div>
+        `;
+    } else {
+        // Show fields for each item
+        let html = '';
+        for (let i = 1; i <= newCount; i++) {
+            html += `
+                <div class="item-details">
+                    <h5>${type === 'stories' ? 'استوری' : 'پست'} شماره ${convertToPersianNumber(i)}</h5>
+                    <div class="form-group">
+                        <label class="form-label">لینک</label>
+                        <input type="url" id="${type}Link${i}" class="form-input"
+                               placeholder="https://instagram.com/...">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label">توضیحات</label>
+                        <textarea id="${type}Desc${i}" class="form-input" rows="3"
+                                  placeholder="محتوا درباره چه بود؟ چه واکنشی دریافت کرد؟"></textarea>
+                    </div>
+                </div>
+            `;
+        }
+        containerEl.innerHTML = html;
+    }
+}
+
+// Convert to Persian numbers
+function convertToPersianNumber(num) {
+    const persianDigits = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+    return num.toString().split('').map(d => persianDigits[parseInt(d)] || d).join('');
+}
+
+// Save task details
+async function saveTaskDetails() {
+    const taskData = collectTaskData();
+
+    if (!taskData) {
+        toast.show('لطفاً تمام فیلدهای ضروری را پر کنید', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('api.php', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                action: 'save_task_details',
+                task_id: currentTaskId,
+                task_type: currentTaskType,
+                ...taskData
+            })
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+            toast.show('جزئیات با موفقیت ذخیره شد', 'success');
+            closeTaskDetailModal();
+
+            // Update checklist item to show it has details
+            const checklistItem = document.querySelector(`[data-task-id="${currentTaskId}"]`);
+            if (checklistItem) {
+                checklistItem.classList.add('has-details');
+            }
+        } else {
+            toast.show(result.message || 'خطا در ذخیره‌سازی', 'error');
+        }
+    } catch (error) {
+        console.error('Error saving task details:', error);
+        toast.show('خطا در ارتباط با سرور', 'error');
+    }
+}
+
+// Collect data from form
+function collectTaskData() {
+    const timeSpent = document.getElementById('timeSpent')?.value;
+    if (!timeSpent) return null;
+
+    const data = {
+        time_spent_minutes: parseInt(timeSpent),
+        details: {}
+    };
+
+    switch(currentTaskType) {
+        case 'stories':
+        case 'posts':
+            const count = parseInt(document.getElementById(`${currentTaskType}Count`)?.textContent || 0);
+            data.details.count = count;
+
+            if (count === 0) {
+                data.details.reason = document.getElementById(`${currentTaskType}Reason`)?.value;
+            } else {
+                data.details.items = [];
+                for (let i = 1; i <= count; i++) {
+                    data.details.items.push({
+                        link: document.getElementById(`${currentTaskType}Link${i}`)?.value,
+                        description: document.getElementById(`${currentTaskType}Desc${i}`)?.value
+                    });
+                }
+            }
+            break;
+
+        case 'follow':
+            data.details.count = parseInt(document.getElementById('followCount')?.value || 0);
+            data.details.type = document.querySelector('input[name="followType"]:checked')?.value;
+            data.details.description = document.getElementById('followDescription')?.value;
+            break;
+
+        case 'unfollow':
+            data.details.count = parseInt(document.getElementById('unfollowCount')?.value || 0);
+            data.details.type = document.querySelector('input[name="unfollowType"]:checked')?.value;
+            data.details.description = document.getElementById('unfollowDescription')?.value;
+            break;
+
+        default:
+            data.details.notes = document.getElementById('generalNotes')?.value;
+            break;
+    }
+
+    return data;
+}
+
+// Load existing task data
+async function loadExistingTaskData(taskId) {
+    try {
+        const response = await fetch(`api.php?action=get_task_details&task_id=${taskId}`);
+        const result = await response.json();
+
+        if (result.success && result.data) {
+            // Populate form with existing data
+            if (result.data.time_spent_minutes) {
+                document.getElementById('timeSpent').value = result.data.time_spent_minutes;
+            }
+
+            // Populate type-specific fields
+            // This will be implemented based on the data structure
+        }
+    } catch (error) {
+        console.error('Error loading task details:', error);
+    }
+}
+
+// Close modal on outside click
+document.addEventListener('click', function(e) {
+    const modal = document.getElementById('taskDetailModal');
+    if (modal && e.target === modal) {
+        closeTaskDetailModal();
+    }
+});

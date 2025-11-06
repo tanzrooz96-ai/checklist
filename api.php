@@ -254,6 +254,241 @@ try {
             ]);
             break;
 
+        case 'save_task_details':
+            $input = json_decode(file_get_contents('php://input'), true);
+
+            $taskId = $input['task_id'] ?? 0;
+            $timeSpent = (int)($input['time_spent_minutes'] ?? 0);
+            $details = $input['details'] ?? [];
+
+            if (!$taskId || !$timeSpent) {
+                throw new Exception('اطلاعات ناقص است');
+            }
+
+            // Get or create today's report (draft status)
+            $stmt = $pdo->prepare("
+                SELECT id FROM daily_reports
+                WHERE admin_id = ? AND date = ?
+            ");
+            $stmt->execute([$user['id'], $today]);
+            $report = $stmt->fetch();
+
+            if (!$report) {
+                // Create new report
+                $stmt = $pdo->prepare("
+                    INSERT INTO daily_reports (admin_id, date, status)
+                    VALUES (?, ?, 'draft')
+                ");
+                $stmt->execute([$user['id'], $today]);
+                $reportId = $pdo->lastInsertId();
+            } else {
+                $reportId = $report['id'];
+
+                // Check if report is submitted or approved - require password
+                $stmt = $pdo->prepare("SELECT status FROM daily_reports WHERE id = ?");
+                $stmt->execute([$reportId]);
+                $reportStatus = $stmt->fetch()['status'];
+
+                if ($reportStatus != 'draft') {
+                    throw new Exception('گزارش ثبت شده است. برای ویرایش به صفحه گزارش بروید.');
+                }
+            }
+
+            // Calculate quality score (basic algorithm)
+            $qualityScore = 0;
+            if ($details['count'] ?? null) {
+                $qualityScore = min(100, ($details['count'] * 20));
+            } else {
+                $qualityScore = !empty($details['notes']) ? 80 : 50;
+            }
+
+            // Save or update task details
+            $stmt = $pdo->prepare("
+                INSERT INTO task_details (report_id, task_id, admin_id, completed, time_spent_minutes, quality_score, details_json, general_notes)
+                VALUES (?, ?, ?, 1, ?, ?, ?, '')
+                ON DUPLICATE KEY UPDATE
+                    completed = 1,
+                    time_spent_minutes = VALUES(time_spent_minutes),
+                    quality_score = VALUES(quality_score),
+                    details_json = VALUES(details_json),
+                    created_at = NOW()
+            ");
+            $stmt->execute([
+                $reportId,
+                $taskId,
+                $user['id'],
+                $timeSpent,
+                $qualityScore,
+                json_encode($details, JSON_UNESCAPED_UNICODE)
+            ]);
+
+            // Update report total score
+            updateReportScore($pdo, $reportId);
+
+            // Log activity
+            logActivity($pdo, $user['id'], 'task_details_saved', 'ذخیره جزئیات وظیفه');
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'جزئیات با موفقیت ذخیره شد',
+                'quality_score' => $qualityScore
+            ]);
+            break;
+
+        case 'get_task_details':
+            $taskId = $_GET['task_id'] ?? 0;
+
+            if (!$taskId) {
+                throw new Exception('شناسه وظیفه نامعتبر است');
+            }
+
+            // Get today's report
+            $stmt = $pdo->prepare("
+                SELECT id FROM daily_reports
+                WHERE admin_id = ? AND date = ?
+            ");
+            $stmt->execute([$user['id'], $today]);
+            $report = $stmt->fetch();
+
+            if (!$report) {
+                echo json_encode(['success' => true, 'data' => null]);
+                break;
+            }
+
+            // Get task details
+            $stmt = $pdo->prepare("
+                SELECT * FROM task_details
+                WHERE report_id = ? AND task_id = ? AND admin_id = ?
+            ");
+            $stmt->execute([$report['id'], $taskId, $user['id']]);
+            $taskDetails = $stmt->fetch();
+
+            if ($taskDetails && $taskDetails['details_json']) {
+                $taskDetails['details'] = json_decode($taskDetails['details_json'], true);
+            }
+
+            echo json_encode([
+                'success' => true,
+                'data' => $taskDetails
+            ]);
+            break;
+
+        case 'submit_report':
+            $input = json_decode(file_get_contents('php://input'), true);
+            $reportId = $input['report_id'] ?? 0;
+
+            if (!$reportId) {
+                throw new Exception('شناسه گزارش نامعتبر است');
+            }
+
+            // Verify report belongs to user
+            $stmt = $pdo->prepare("SELECT * FROM daily_reports WHERE id = ? AND admin_id = ?");
+            $stmt->execute([$reportId, $user['id']]);
+            $report = $stmt->fetch();
+
+            if (!$report) {
+                throw new Exception('گزارش یافت نشد');
+            }
+
+            if ($report['status'] != 'draft') {
+                throw new Exception('فقط گزارش‌های پیش‌نویس قابل ثبت هستند');
+            }
+
+            // Check if at least some tasks are completed
+            $stmt = $pdo->prepare("SELECT COUNT(*) as count FROM task_details WHERE report_id = ?");
+            $stmt->execute([$reportId]);
+            $taskCount = $stmt->fetch()['count'];
+
+            if ($taskCount == 0) {
+                throw new Exception('لطفاً حداقل یک وظیفه را با جزئیات کامل کنید');
+            }
+
+            // Update report status
+            $stmt = $pdo->prepare("
+                UPDATE daily_reports
+                SET status = 'submitted', submitted_at = NOW()
+                WHERE id = ?
+            ");
+            $stmt->execute([$reportId]);
+
+            // Log activity
+            logActivity($pdo, $user['id'], 'report_submitted', 'ثبت گزارش روزانه');
+
+            // Log in report_edit_logs
+            $stmt = $pdo->prepare("
+                INSERT INTO report_edit_logs (report_id, edited_by, edit_type, ip_address, user_agent)
+                VALUES (?, ?, 'submit', ?, ?)
+            ");
+            $stmt->execute([
+                $reportId,
+                $user['id'],
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'گزارش با موفقیت ثبت شد'
+            ]);
+            break;
+
+        case 'unlock_report_edit':
+            $input = json_decode(file_get_contents('php://input'), true);
+            $reportId = $input['report_id'] ?? 0;
+            $password = $input['password'] ?? '';
+
+            if (!$reportId || !$password) {
+                throw new Exception('اطلاعات ناقص است');
+            }
+
+            // Verify password
+            $correctPassword = '14512';
+            if ($password !== $correctPassword) {
+                throw new Exception('رمز عبور اشتباه است');
+            }
+
+            // Verify report belongs to user
+            $stmt = $pdo->prepare("SELECT * FROM daily_reports WHERE id = ? AND admin_id = ?");
+            $stmt->execute([$reportId, $user['id']]);
+            $report = $stmt->fetch();
+
+            if (!$report) {
+                throw new Exception('گزارش یافت نشد');
+            }
+
+            if ($report['status'] != 'submitted' && $report['status'] != 'approved') {
+                throw new Exception('فقط گزارش‌های ثبت شده قابل باز کردن هستند');
+            }
+
+            // Change status back to draft
+            $stmt = $pdo->prepare("
+                UPDATE daily_reports
+                SET status = 'draft', submitted_at = NULL
+                WHERE id = ?
+            ");
+            $stmt->execute([$reportId]);
+
+            // Log activity
+            logActivity($pdo, $user['id'], 'report_unlocked', 'باز کردن گزارش با رمز عبور');
+
+            // Log in report_edit_logs with password flag
+            $stmt = $pdo->prepare("
+                INSERT INTO report_edit_logs (report_id, edited_by, edit_type, password_used, ip_address, user_agent)
+                VALUES (?, ?, 'update', 1, ?, ?)
+            ");
+            $stmt->execute([
+                $reportId,
+                $user['id'],
+                $_SERVER['REMOTE_ADDR'] ?? '',
+                $_SERVER['HTTP_USER_AGENT'] ?? ''
+            ]);
+
+            echo json_encode([
+                'success' => true,
+                'message' => 'گزارش باز شد و آماده ویرایش است'
+            ]);
+            break;
+
         default:
             throw new Exception('عملیات نامعتبر است');
     }
@@ -264,4 +499,58 @@ try {
         'success' => false,
         'message' => $e->getMessage()
     ]);
+}
+
+// Helper function to calculate and update report score
+function updateReportScore($pdo, $reportId) {
+    // Get all task details for this report
+    $stmt = $pdo->prepare("
+        SELECT
+            td.quality_score,
+            td.completed,
+            dt.priority
+        FROM task_details td
+        JOIN daily_tasks dt ON td.task_id = dt.id
+        WHERE td.report_id = ?
+    ");
+    $stmt->execute([$reportId]);
+    $tasks = $stmt->fetchAll();
+
+    if (empty($tasks)) {
+        return;
+    }
+
+    // Calculate weighted score
+    $totalWeightedScore = 0;
+    $totalWeight = 0;
+
+    $priorityWeights = [
+        'critical' => 1.5,
+        'high' => 1.2,
+        'medium' => 1.0,
+        'low' => 0.8
+    ];
+
+    foreach ($tasks as $task) {
+        $weight = $priorityWeights[$task['priority']] ?? 1.0;
+        $totalWeightedScore += $task['quality_score'] * $weight;
+        $totalWeight += $weight;
+    }
+
+    $averageScore = $totalWeight > 0 ? round($totalWeightedScore / $totalWeight) : 0;
+
+    // Get total tasks count
+    $stmt = $pdo->query("SELECT COUNT(*) as total FROM daily_tasks");
+    $totalTasks = $stmt->fetch()['total'];
+
+    $completedTasks = count($tasks);
+    $completionRate = $totalTasks > 0 ? round(($completedTasks / $totalTasks) * 100, 2) : 0;
+
+    // Update report
+    $stmt = $pdo->prepare("
+        UPDATE daily_reports
+        SET total_score = ?, completion_rate = ?
+        WHERE id = ?
+    ");
+    $stmt->execute([$averageScore, $completionRate, $reportId]);
 }

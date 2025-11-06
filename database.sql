@@ -1,5 +1,6 @@
 -- Instagram Admin Monitoring System Database Schema
 -- MySQL 8.0+
+-- ADVANCED REPORTING SYSTEM
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -50,13 +51,58 @@ CREATE TABLE IF NOT EXISTS `daily_tasks` (
   `priority` ENUM('low','medium','high','critical') NOT NULL DEFAULT 'medium',
   `estimated_minutes` INT(11) NOT NULL DEFAULT 30,
   `category` VARCHAR(50) DEFAULT 'general',
+  `task_type` VARCHAR(50) DEFAULT 'simple',
   `is_recurring` TINYINT(1) NOT NULL DEFAULT 1,
   `display_order` INT(11) NOT NULL DEFAULT 0,
   `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Task completion tracking
+-- ===== NEW: Daily Reports Table =====
+CREATE TABLE IF NOT EXISTS `daily_reports` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `admin_id` INT(11) NOT NULL,
+  `date` DATE NOT NULL,
+  `status` ENUM('draft','submitted','approved','rejected') NOT NULL DEFAULT 'draft',
+  `total_score` INT(11) DEFAULT 0,
+  `completion_rate` DECIMAL(5,2) DEFAULT 0,
+  `submitted_at` TIMESTAMP NULL DEFAULT NULL,
+  `approved_at` TIMESTAMP NULL DEFAULT NULL,
+  `manager_notes` TEXT,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `admin_date` (`admin_id`, `date`),
+  KEY `admin_id` (`admin_id`),
+  KEY `date` (`date`),
+  KEY `status` (`status`),
+  FOREIGN KEY (`admin_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- ===== NEW: Task Details (Advanced) =====
+CREATE TABLE IF NOT EXISTS `task_details` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `report_id` INT(11) NOT NULL,
+  `task_id` INT(11) NOT NULL,
+  `admin_id` INT(11) NOT NULL,
+  `completed` TINYINT(1) NOT NULL DEFAULT 0,
+  `time_spent_minutes` INT(11) DEFAULT 0,
+  `quality_score` INT(11) DEFAULT 0,
+  `details_json` JSON,
+  `general_notes` TEXT,
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `report_task` (`report_id`, `task_id`),
+  KEY `report_id` (`report_id`),
+  KEY `task_id` (`task_id`),
+  KEY `admin_id` (`admin_id`),
+  FOREIGN KEY (`report_id`) REFERENCES `daily_reports`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`task_id`) REFERENCES `daily_tasks`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`admin_id`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Task completion tracking (Legacy - keeping for compatibility)
 CREATE TABLE IF NOT EXISTS `task_completions` (
   `id` INT(11) NOT NULL AUTO_INCREMENT,
   `task_id` INT(11) NOT NULL,
@@ -107,28 +153,46 @@ CREATE TABLE IF NOT EXISTS `motivational_messages` (
   PRIMARY KEY (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- ===== NEW: Report Edit Logs =====
+CREATE TABLE IF NOT EXISTS `report_edit_logs` (
+  `id` INT(11) NOT NULL AUTO_INCREMENT,
+  `report_id` INT(11) NOT NULL,
+  `edited_by` INT(11) NOT NULL,
+  `edit_type` ENUM('create','update','submit','approve','reject') NOT NULL,
+  `password_used` TINYINT(1) DEFAULT 0,
+  `changes_json` JSON,
+  `ip_address` VARCHAR(45),
+  `user_agent` VARCHAR(255),
+  `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `report_id` (`report_id`),
+  KEY `edited_by` (`edited_by`),
+  FOREIGN KEY (`report_id`) REFERENCES `daily_reports`(`id`) ON DELETE CASCADE,
+  FOREIGN KEY (`edited_by`) REFERENCES `users`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Insert default admin and manager users (password: admin123 and manager123)
 INSERT INTO `users` (`username`, `password`, `role`, `full_name`) VALUES
 ('admin', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'admin', 'مدیر اینستاگرام'),
 ('manager', '$2y$10$92IXUNpkjO0rOQ5byMi.Ye4oKoEa3Ro9llC/.og/at2.uheWG/igi', 'manager', 'مدیر کل');
 
--- Insert default daily tasks
-INSERT INTO `daily_tasks` (`title`, `description`, `priority`, `estimated_minutes`, `category`, `display_order`) VALUES
-('بررسی و پاسخ به دایرکت‌ها', 'پاسخگویی به تمام پیام‌های مشتریان در دایرکت و ارائه اطلاعات محصولات', 'high', 60, 'customer_service', 1),
-('پست کردن محتوای روزانه', 'آپلود حداقل 1-2 پست جدید با کیفیت بالا از محصولات غذایی', 'high', 45, 'content', 2),
-('ایجاد استوری (3-5 عدد)', 'ساخت و انتشار استوری‌های جذاب شامل معرفی محصول، تخفیف‌ها و پشت صحنه', 'high', 40, 'content', 3),
-('لایک و کامنت در صفحات مرتبط', 'تعامل با 20-30 پست در صفحات مشابه و مخاطبان هدف', 'medium', 30, 'engagement', 4),
-('پاسخ به کامنت‌ها', 'پاسخگویی به تمام کامنت‌های کاربران زیر پست‌ها', 'high', 25, 'customer_service', 5),
-('فالو کردن مخاطبان هدف', 'فالو کردن 30-50 اکانت مرتبط با صنعت غذایی', 'medium', 20, 'growth', 6),
-('آنفالو کردن اکانت‌های غیرفعال', 'حذف اکانت‌هایی که فالو بک نکرده‌اند (حداکثر 20-30 روز)', 'low', 15, 'growth', 7),
-('بررسی رقبا', 'تحلیل محتوا و استراتژی 3-5 صفحه رقیب', 'medium', 35, 'research', 8),
-('جستجوی هشتگ‌های ترند', 'یافتن و ذخیره هشتگ‌های پرطرفدار مرتبط با غذا', 'medium', 20, 'research', 9),
-('طراحی محتوای فردا', 'آماده‌سازی و برنامه‌ریزی محتوای روز بعد', 'high', 40, 'planning', 10),
-('ثبت آمار روزانه', 'وارد کردن تعداد فالوور، فالووینگ، ایمپرشن و سایر معیارها', 'critical', 10, 'reporting', 11),
-('بررسی اینسایت‌ها', 'تحلیل آمار پست‌ها، استوری‌ها و بهترین زمان انتشار', 'high', 25, 'analytics', 12),
-('پاسخ به سوالات محصولات', 'ارائه اطلاعات کامل درباره قیمت، موجودی و نحوه سفارش', 'high', 30, 'customer_service', 13),
-('ایجاد ریلز (اگر امکان دارد)', 'ساخت ویدیوهای کوتاه جذاب از محصولات', 'medium', 50, 'content', 14),
-('برنامه‌ریزی کمپین هفتگی', 'طراحی تخفیف‌ها، مسابقات یا رویدادهای ویژه', 'medium', 45, 'planning', 15);
+-- Insert default daily tasks with task_type
+INSERT INTO `daily_tasks` (`title`, `description`, `priority`, `estimated_minutes`, `category`, `task_type`, `display_order`) VALUES
+('بررسی و پاسخ به دایرکت‌ها', 'پاسخگویی به تمام پیام‌های مشتریان در دایرکت و ارائه اطلاعات محصولات', 'high', 60, 'customer_service', 'direct_messages', 1),
+('پست کردن محتوای روزانه', 'آپلود حداقل 1-2 پست جدید با کیفیت بالا از محصولات غذایی', 'high', 45, 'content', 'posts', 2),
+('ایجاد استوری (3-5 عدد)', 'ساخت و انتشار استوری‌های جذاب شامل معرفی محصول، تخفیف‌ها و پشت صحنه', 'high', 40, 'content', 'stories', 3),
+('لایک و کامنت در صفحات مرتبط', 'تعامل با 20-30 پست در صفحات مشابه و مخاطبان هدف', 'medium', 30, 'engagement', 'engagement', 4),
+('پاسخ به کامنت‌ها', 'پاسخگویی به تمام کامنت‌های کاربران زیر پست‌ها', 'high', 25, 'customer_service', 'comments', 5),
+('فالو کردن مخاطبان هدف', 'فالو کردن 30-50 اکانت مرتبط با صنعت غذایی', 'medium', 20, 'growth', 'follow', 6),
+('آنفالو کردن اکانت‌های غیرفعال', 'حذف اکانت‌هایی که فالو بک نکرده‌اند (حداکثر 20-30 روز)', 'low', 15, 'growth', 'unfollow', 7),
+('بررسی رقبا', 'تحلیل محتوا و استراتژی 3-5 صفحه رقیب', 'medium', 35, 'research', 'research', 8),
+('جستجوی هشتگ‌های ترند', 'یافتن و ذخیره هشتگ‌های پرطرفدار مرتبط با غذا', 'medium', 20, 'research', 'hashtags', 9),
+('طراحی محتوای فردا', 'آماده‌سازی و برنامه‌ریزی محتوای روز بعد', 'high', 40, 'planning', 'planning', 10),
+('ثبت آمار روزانه', 'وارد کردن تعداد فالوور، فالووینگ، ایمپرشن و سایر معیارها', 'critical', 10, 'reporting', 'metrics', 11),
+('بررسی اینسایت‌ها', 'تحلیل آمار پست‌ها، استوری‌ها و بهترین زمان انتشار', 'high', 25, 'analytics', 'insights', 12),
+('پاسخ به سوالات محصولات', 'ارائه اطلاعات کامل درباره قیمت، موجودی و نحوه سفارش', 'high', 30, 'customer_service', 'product_questions', 13),
+('ایجاد ریلز (اگر امکان دارد)', 'ساخت ویدیوهای کوتاه جذاب از محصولات', 'medium', 50, 'content', 'reels', 14),
+('برنامه‌ریزی کمپین هفتگی', 'طراحی تخفیف‌ها، مسابقات یا رویدادهای ویژه', 'medium', 45, 'planning', 'campaign', 15);
 
 -- Insert milestones
 INSERT INTO `milestones` (`target_followers`, `title`, `description`, `reward_message`, `display_order`) VALUES
