@@ -92,7 +92,7 @@ foreach ($todayMetrics as $metric) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>پنل مدیریت - نظارت بر ادمین</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style-light.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body class="dashboard">
@@ -423,6 +423,6 @@ foreach ($todayMetrics as $metric) {
         </div>
     </main>
 
-    <script src="script.js"></script>
+    <script src="script-light.js"></script>
 </body>
 </html>

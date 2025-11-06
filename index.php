@@ -55,7 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ورود به سیستم - مدیریت اینستاگرام</title>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style-light.css">
 </head>
 <body class="login-page">
     <div class="login-container">

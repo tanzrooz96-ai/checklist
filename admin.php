@@ -113,10 +113,57 @@ $chartData = array_reverse($stmt->fetchAll());
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>داشبورد ادمین - مدیریت اینستاگرام</title>
-    <link rel="stylesheet" href="style.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="style-light.css">
+
+    <!-- Preload critical resources -->
+    <link rel="preconnect" href="https://cdn.jsdelivr.net">
+
+    <!-- Skeleton loading styles -->
+    <style>
+        .loading-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #FAFAF8;
+            z-index: 9999;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(196, 30, 58, 0.1);
+            border-top-color: #C41E3A;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .content-loading {
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+
+        .content-loaded {
+            opacity: 1;
+        }
+    </style>
 </head>
 <body class="dashboard">
+    <!-- Loading Screen -->
+    <div class="loading-screen" id="loadingScreen">
+        <div class="loading-spinner"></div>
+    </div>
+
+    <!-- Actual Content -->
+    <div class="content-loading" id="mainContent">
     <!-- Header -->
     <header class="header">
         <div class="header-content">
@@ -332,7 +379,7 @@ $chartData = array_reverse($stmt->fetchAll());
                                            data-task-id="<?php echo $task['id']; ?>"
                                            <?php echo $isCompleted ? 'checked' : ''; ?>>
                                 </div>
-                                <div class="checklist-content" onclick="openTaskDetailModal(<?php echo $task['id']; ?>, '<?php echo htmlspecialchars($task['task_type'] ?? 'general'); ?>')" style="cursor: pointer;">
+                                <div class="checklist-content">
                                     <div class="checklist-title"><?php echo htmlspecialchars($task['title']); ?></div>
                                     <div class="checklist-meta">
                                         <span class="badge <?php echo $priorityClass; ?>">
@@ -353,7 +400,7 @@ $chartData = array_reverse($stmt->fetchAll());
                                             </svg>
                                             <?php echo convertEnglishToPersian($task['estimated_minutes']); ?> دقیقه
                                         </span>
-                                        <button class="btn-detail" onclick="event.stopPropagation(); openTaskDetailModal(<?php echo $task['id']; ?>, '<?php echo htmlspecialchars($task['task_type'] ?? 'general'); ?>')">
+                                        <button class="btn-detail" onclick="openTaskDetailModal(<?php echo $task['id']; ?>, '<?php echo htmlspecialchars($task['task_type'] ?? 'general'); ?>')">
                                             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                                 <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
                                                 <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
@@ -502,6 +549,8 @@ $chartData = array_reverse($stmt->fetchAll());
             </div>
         </div>
     </main>
+    </div>
+    <!-- End Main Content -->
 
     <!-- Task Detail Modal -->
     <div id="taskDetailModal" class="modal">
@@ -599,6 +648,38 @@ $chartData = array_reverse($stmt->fetchAll());
             }
         });
     </script>
-    <script src="script.js"></script>
+
+    <!-- Load optimized JavaScript -->
+    <script src="script-light.js"></script>
+
+    <!-- Hide loading screen when page is ready -->
+    <script>
+        window.addEventListener('load', function() {
+            const loadingScreen = document.getElementById('loadingScreen');
+            const mainContent = document.getElementById('mainContent');
+
+            // Fade out loading screen
+            loadingScreen.style.transition = 'opacity 0.3s';
+            loadingScreen.style.opacity = '0';
+
+            setTimeout(function() {
+                loadingScreen.style.display = 'none';
+                mainContent.classList.remove('content-loading');
+                mainContent.classList.add('content-loaded');
+            }, 300);
+        });
+
+        // Fallback: hide loading after 3 seconds maximum
+        setTimeout(function() {
+            const loadingScreen = document.getElementById('loadingScreen');
+            if (loadingScreen && loadingScreen.style.display !== 'none') {
+                loadingScreen.style.display = 'none';
+                document.getElementById('mainContent').classList.add('content-loaded');
+            }
+        }, 3000);
+    </script>
+
+    <!-- Load Chart.js with defer for better performance -->
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </body>
 </html>
